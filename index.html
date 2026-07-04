@@ -250,6 +250,17 @@ button { font-family: inherit; }
 .band-ministerio { background: #9c7a1f; }
 .band-vidacrista { background: #8a1f4d; }
 .band + .field-row { padding-top: 12px; }
+
+.donate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .donate-grid { grid-template-columns: 1fr; } }
+.donate-cta-outline { display: inline-block; margin-top: 14px; color: var(--olive-700); font-weight: 600; font-size: 0.85rem; text-decoration: underline; }
+.month-toggle { width: 100%; text-align: left; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px 18px; font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; color: var(--olive-900); cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.month-toggle .arrow { transition: transform 0.15s ease; opacity: 0.6; }
+.month-toggle.open .arrow { transform: rotate(90deg); }
+.month-badge { background: var(--olive-700); color: #fff; border-radius: 20px; padding: 2px 10px; font-size: 0.72rem; font-family: var(--font-mono); }
+.month-body { display: none; margin: -4px 0 14px; }
+.month-body.open { display: block; }
+.month-empty { color: var(--ink-soft); font-size: 0.85rem; font-style: italic; padding: 4px 4px 14px; }
 </style>
 </head>
 <body>
@@ -302,8 +313,7 @@ const SECTIONS = [
     fields: ["Dirigente","Território","Ponto de Encontro","Horário"] },
   { id: "responsaveis", label: "Responsáveis", icon: "clipboard", title: "Responsáveis", desc: "Quadro de responsáveis e ajudantes da congregação.", custom: "responsaveis" },
   { id: "territorio", label: "Territórios", icon: "map", title: "Territórios", desc: "Territórios de pregação da congregação.", custom: "territorio" },
-  { id: "agenda", label: "Agenda", icon: "calendar", title: "Agenda", desc: "Eventos, assembleias, congressos e atividades especiais.", titleKey: "Evento", dateKey: "Data", yearFilter: true,
-    fields: ["Local","Observações"] },
+  { id: "agenda", label: "Agenda", icon: "calendar", title: "Agenda", desc: "Eventos, assembleias, congressos e atividades especiais.", custom: "agenda" },
   { id: "donativos", label: "Donativos", icon: "heart", title: "Donativos", desc: "Informações para contribuições à congregação e à obra mundial.", custom: "donativos" },
 ];
 
@@ -537,12 +547,12 @@ function renderInicio() {
 /* ---------- Reunião Pública (custom) ---------- */
 function renderReuniaoPublica() {
   const rows = (DATA.programacaoSemanal || [])
-    .filter((r) => monthOf(r["Data"]) === currentMonth && (r["Orador"] || r["Tema Discurso"]));
-  rows.sort((a, b) => (a["Data"] || "").localeCompare(b["Data"] || ""));
+    .filter((r) => monthOf(r["Data Reunião Pública"]) === currentMonth && (r["Orador"] || r["Tema Discurso"]));
+  rows.sort((a, b) => (a["Data Reunião Pública"] || "").localeCompare(b["Data Reunião Pública"] || ""));
   if (rows.length === 0) return monthSelectorHtml("reuniaoPublica") + emptyState();
   const cards = rows.map((r) => `
     <div class="card">
-      <div class="card-head"><span>${formatDateHeader(r["Data"])}</span><span>${escapeHtml(r["Presidente Reunião Pública"] || "")}</span></div>
+      <div class="card-head"><span>${formatDateHeader(r["Data Reunião Pública"])}</span><span>${escapeHtml(r["Presidente Reunião Pública"] || "")}</span></div>
       <div class="card-body">
         ${fieldRow("Presidente", r["Presidente Reunião Pública"])}
         ${fieldRow("Tema", r["Tema Discurso"])}
@@ -652,6 +662,48 @@ function renderTerritorio() {
 }
 function setTerritTab(t) { territTab = t; renderPanel(SECTIONS.find((s) => s.id === "territorio")); }
 
+/* ---------- Agenda (custom) ---------- */
+let openMonths = {};
+function renderAgenda() {
+  const rows = (DATA.agenda || []).filter((r) => yearOf(r["Data Início"] || r["Data"]) === currentYear);
+  const byMonth = {};
+  MESES.forEach((_, i) => byMonth[i] = []);
+  rows.forEach((r) => {
+    const d = r["Data Início"] || r["Data"];
+    const m = monthOf(d);
+    if (m !== null) byMonth[m].push(r);
+  });
+  Object.values(byMonth).forEach((list) => list.sort((a, b) => (a["Data Início"] || a["Data"] || "").localeCompare(b["Data Início"] || b["Data"] || "")));
+
+  const monthsHtml = MESES.map((nome, i) => {
+    const events = byMonth[i];
+    const isOpen = openMonths[i] || false;
+    const body = events.length === 0
+      ? `<div class="month-empty">Sem eventos neste mês</div>`
+      : events.map((r) => `
+        <div class="card">
+          <div class="card-head"><span>${formatDateHeader(r["Data Início"] || r["Data"])}</span><span>${escapeHtml(r["Tipo"] || "")}</span></div>
+          <div class="card-body">
+            ${fieldRow("Evento", r["Nome do Evento"])}
+            ${fieldRow("Local", r["Local"])}
+            ${fieldRow("Observações", r["Observações"])}
+          </div>
+        </div>`).join("");
+    return `
+      <button class="month-toggle ${isOpen ? "open" : ""}" onclick="toggleMonth(${i})">
+        <span>${nome}</span>
+        <span style="display:flex;align-items:center;gap:8px">${events.length ? `<span class="month-badge">${events.length}</span>` : ""}<span class="arrow">›</span></span>
+      </button>
+      <div class="month-body ${isOpen ? "open" : ""}" id="month-body-${i}">${body}</div>`;
+  }).join("");
+
+  return yearSelectorHtml("agenda") + monthsHtml;
+}
+function toggleMonth(i) {
+  openMonths[i] = !openMonths[i];
+  renderPanel(SECTIONS.find((s) => s.id === "agenda"));
+}
+
 /* ---------- Donativos (custom) ---------- */
 function renderDonativos() {
   return `
@@ -659,24 +711,32 @@ function renderDonativos() {
       <div class="card-head">Um privilégio alegrador!</div>
       <div class="card-body">
         <p style="font-style:italic;color:var(--ink-soft)">A Bíblia diz em 2 Coríntios 9:7: "Faça cada um conforme resolveu no coração, não a contragosto nem por obrigação, pois Deus ama quem dá com alegria."</p>
-        <p>Nossos donativos apoiam a pregação das boas novas do Reino em toda a Terra e ajudam na manutenção dos locais de adoração.</p>
-        <button class="donativos-cta" onclick="openDonateModal()">Saiba mais sobre como os donativos são usados</button>
+        <p>Nossos donativos apoiam a pregação das boas novas do Reino em toda a Terra e cobrem as despesas de manutenção dos locais de adoração.</p>
+        <a class="donate-cta-outline" href="https://www.jw.org/pt/testemunhas-de-jeova/perguntas-frequentes/como-testemunhas-jeova-usam-donativos/" target="_blank" rel="noopener">Saiba mais como os donativos são usados →</a>
       </div>
     </div>
-    <div id="donateModal" class="modal-backdrop">
-      <div class="modal-box">
-        <button class="modal-close" onclick="closeDonateModal()">✕</button>
-        <h3>PIX e Dados Bancários</h3>
-        <div class="pix-box">
-          Consulte a chave PIX, banco, agência, conta e favorecido com o tesoureiro da congregação.<br><br>
-          <em style="font-size:0.8rem;opacity:0.7">(esses dados podem ser cadastrados na página inicial do Notion)</em>
+    <div class="donate-grid">
+      <div class="card">
+        <div class="card-head">Transferência Bancária e PIX</div>
+        <div class="card-body">
+          <div class="section-tag">Chave PIX</div>
+          ${fieldRow("", "A cadastrar")}
+          <div class="section-tag">Dados bancários</div>
+          ${fieldRow("Banco", "A cadastrar")}
+          ${fieldRow("Agência", "A cadastrar")}
+          ${fieldRow("Conta", "A cadastrar")}
+          ${fieldRow("Titular", "A cadastrar")}
         </div>
-        <a class="donate-link-btn" href="https://donate.jw.org/pt/BRA/home" target="_blank" rel="noopener">Ir para donate.jw.org →</a>
+      </div>
+      <div class="card">
+        <div class="card-head">Cartão de Crédito e Boleto</div>
+        <div class="card-body">
+          <p style="font-size:0.9rem">No portal <strong>donate.jw.org</strong> você pode programar donativos mensais automáticos ou fazer doações únicas por cartão de crédito ou boleto, direcionando para a congregação local ou para a obra mundial.</p>
+          <a class="donate-link-btn" href="https://donate.jw.org/pt/BRA/home" target="_blank" rel="noopener">Acessar donate.jw.org →</a>
+        </div>
       </div>
     </div>`;
 }
-function openDonateModal() { document.getElementById("donateModal").classList.add("open"); }
-function closeDonateModal() { document.getElementById("donateModal").classList.remove("open"); }
 
 /* ---------- Dispatcher ---------- */
 function renderPanel(section) {
@@ -684,7 +744,8 @@ function renderPanel(section) {
   if (section.id === "inicio") { el.innerHTML = renderInicio(); return; }
 
   let body;
-  if (section.custom === "reuniaoPublica") body = renderReuniaoPublica();
+  if (section.custom === "agenda") body = renderAgenda();
+  else if (section.custom === "reuniaoPublica") body = renderReuniaoPublica();
   else if (section.custom === "vidaMinisterio") body = renderVidaMinisterio();
   else if (section.custom === "grupos") body = renderGrupos();
   else if (section.custom === "responsaveis") body = renderResponsaveis();
