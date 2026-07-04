@@ -243,6 +243,13 @@ button { font-family: inherit; }
 
 .brand-logo { justify-content: center; padding: 22px 20px; }
 .brand-logo-img { width: 100%; max-width: 180px; border-radius: 10px; display: block; }
+
+.band { color: #fff; padding: 10px 20px; font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; margin: 14px -20px 0; display: flex; align-items: center; gap: 8px; }
+.band:first-of-type { margin-top: 0; }
+.band-tesouros { background: #3d6b3d; }
+.band-ministerio { background: #9c7a1f; }
+.band-vidacrista { background: #8a1f4d; }
+.band + .field-row { padding-top: 12px; }
 </style>
 </head>
 <body>
@@ -554,19 +561,23 @@ function renderVidaMinisterio() {
   if (rows.length === 0) return monthSelectorHtml("vidaMinisterio") + emptyState();
 
   const partes = DATA.partesReuniao || [];
-  const secoes = ["Tesouros da Palavra", "Faça Seu Melhor no Ministério", "Nossa Vida Cristã"];
+  const secoes = [
+    { nome: "Tesouros da Palavra", classe: "band-tesouros", icone: "💎" },
+    { nome: "Faça Seu Melhor no Ministério", classe: "band-ministerio", icone: "🌾" },
+    { nome: "Nossa Vida Cristã", classe: "band-vidacrista", icone: "🐑" },
+  ];
 
   const cards = rows.map((r) => {
     const semanaPartes = partes.filter((p) => p["Data da Semana"] === r["Data"]);
     const secoesHtml = secoes.map((sec) => {
-      const items = semanaPartes.filter((p) => p["Seção"] === sec).sort((a, b) => (a["Ordem"] || 0) - (b["Ordem"] || 0));
+      const items = semanaPartes.filter((p) => p["Seção"] === sec.nome).sort((a, b) => (a["Ordem"] || 0) - (b["Ordem"] || 0));
       if (items.length === 0) return "";
       const rowsHtml = items.map((p) => {
         const tempo = p["Tempo (min)"] ? ` (${p["Tempo (min)"]} min)` : "";
         const resp = [p["Responsável 1"], p["Responsável 2"]].filter(Boolean).join(" / ");
         return fieldRow(p["Título da Parte"] + tempo, resp);
       }).join("");
-      return `<div class="section-tag">${sec}</div>${rowsHtml}`;
+      return `<div class="band ${sec.classe}"><span>${sec.icone}</span>${sec.nome}</div>${rowsHtml}`;
     }).join("");
 
     return `
