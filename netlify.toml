@@ -1,0 +1,8 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+
+[[redirects]]
+  from = "/api/dados"
+  to = "/.netlify/functions/get-data"
+  status = 200
